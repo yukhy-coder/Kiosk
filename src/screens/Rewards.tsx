@@ -18,7 +18,15 @@ export function Rewards() {
   const student = state.student;
   const redeemed = state.redeemed100;
   const order = state.order;
-  const backTarget = order ? "confirm" : "browse";
+  const backTarget = order ? "confirm" : (state.returnTo && state.returnTo !== "rewards" ? state.returnTo : "browse");
+  const backLabel =
+    order
+      ? "Back to confirmation"
+      : backTarget === "cart"
+      ? "Back to cart"
+      : backTarget === "product"
+      ? "Back to product"
+      : "Back to browse";
 
   const pointsNeededFor1000 = Math.max(0, 1000 - student.points);
 
@@ -34,8 +42,8 @@ export function Rewards() {
 
   return (
     <Shell>
-      <Back onClick={() => dispatch({ type: "go", screen: backTarget })}>
-        {order ? "Back to confirmation" : "Back to browse"}
+      <Back onClick={() => dispatch({ type: "go", screen: backTarget, returnTo: null })}>
+        {backLabel}
       </Back>
       <h2 className="display">Your campus perks, all here.</h2>
       <p className="lede">

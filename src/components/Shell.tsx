@@ -18,8 +18,10 @@ function Check() {
 }
 
 export function Header() {
-  const { state } = useKiosk();
+  const { state, dispatch } = useKiosk();
   const signed = !!state.student;
+  const processing = state.payStatus === "processing";
+
   return (
     <header className="header">
       <div className="brand">
@@ -31,12 +33,22 @@ export function Header() {
       </div>
       <div className="header-right">
         {signed ? (
-          <>
+          <button
+            type="button"
+            className="header-account-btn"
+            disabled={processing}
+            onClick={() => {
+              if (state.screen !== "rewards") {
+                dispatch({ type: "go", screen: "rewards", returnTo: state.screen });
+              }
+            }}
+            title="View Balance & Rewards"
+          >
             <div className="hi">Hi, {state.student!.name}</div>
             <div className="gold">
-              Campus balance {pesos(state.student!.balance).replace(".00", "")}
+              Campus balance {pesos(state.student!.balance)}
             </div>
-          </>
+          </button>
         ) : (
           <>
             <div className="welcome-tag">WELCOME, ALDER HAWKS</div>

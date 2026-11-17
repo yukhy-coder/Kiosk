@@ -143,6 +143,28 @@ img {
   text-align: right;
 }
 
+.header-account-btn {
+  background: none;
+  border: 0;
+  text-align: right;
+  padding: 6px 12px;
+  margin: -6px -12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease;
+  display: block;
+  font-family: inherit;
+  color: inherit;
+}
+
+.header-account-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.header-account-btn:active {
+  transform: scale(0.98);
+}
+
 .header-right .hi {
   font-weight: 700;
   font-size: 18px;
