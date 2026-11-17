@@ -7,7 +7,7 @@ Members:
 - Mheramae M. Malto
 - Ralph Justine Mamac
 
-## Alder University Campus Store Kiosk (`AlderUni`)
+## Alder University Campus Store Kiosk
 
 An interactive portrait kiosk interface (1024 × 1440) for Alder University's campus store, built with React 19, TypeScript, and Vite.
 
@@ -21,7 +21,6 @@ An interactive portrait kiosk interface (1024 × 1440) for Alder University's ca
 ### Getting Started
 
 ```bash
-cd AlderUni
 npm install
 npm run dev
 ```
@@ -31,6 +30,5 @@ Open [http://localhost:5173/](http://localhost:5173/) to view the kiosk.
 ### Production Build
 
 ```bash
-cd AlderUni
 npm run build
 ```
