@@ -1,10 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Shell } from "../components/Shell";
 import { pesos } from "../data";
 import { useKiosk } from "../store";
+import { playTap, playSuccess } from "../utils/sound";
 
 export function Confirm() {
   const { state, dispatch } = useKiosk();
+  const [printed, setPrinted] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   // Guard: if no order or student, return to welcome
   useEffect(() => {
@@ -18,9 +21,25 @@ export function Confirm() {
   const order = state.order;
   const student = state.student;
   const itemCount = order.items.reduce((acc, item) => acc + item.qty, 0);
+  const studentEmail = `${student.name.toLowerCase().replace(/[^a-z0-9]/g, ".")}@alder.edu`;
 
   return (
     <Shell>
+      {/* Confetti Celebration Elements */}
+      <div className="confetti-container" aria-hidden>
+        {Array.from({ length: 24 }).map((_, i) => (
+          <div
+            key={i}
+            className={`confetti-piece color-${i % 4}`}
+            style={{
+              left: `${(i * 4.2 + 2)}%`,
+              animationDelay: `${(i % 6) * 0.15}s`,
+              animationDuration: `${1.8 + (i % 5) * 0.25}s`,
+            }}
+          />
+        ))}
+      </div>
+
       <div className="success-row">
         <div className="check-lg">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -44,10 +63,10 @@ export function Confirm() {
       <div className="pickup">
         <div className="over">
           <span>YOUR PICKUP CODE</span>
-          <span>ORDER {order.id}</span>
+          <span>ORDER #{order.id}</span>
         </div>
         <div className="code">{order.pickupCode.replace("-", "–")}</div>
-        <div className="gold">Ready in about 5 minutes · North Hall counter</div>
+        <div className="gold">Ready in about 5 minutes · North Hall Counter</div>
       </div>
 
       <div className="next">
@@ -58,7 +77,7 @@ export function Confirm() {
             <div>
               <strong>Head to the pickup counter</strong>
               <p className="tiny" style={{ marginTop: 2 }}>
-                Look for the Hawks sign beside this kiosk.
+                Look for the North Hall Hawks sign right beside this kiosk.
               </p>
             </div>
           </div>
@@ -67,59 +86,111 @@ export function Confirm() {
             <div>
               <strong>Show code {order.pickupCode}</strong>
               <p className="tiny" style={{ marginTop: 2 }}>
-                Have your student ID ready for the associate.
+                Have your Alder student ID ready for the associate.
               </p>
             </div>
           </div>
           <div className="next-item">
             <span className="step-num">3</span>
             <div>
-              <strong>Collect your campus gear</strong>
+              <strong>Collect your official Alder gear</strong>
               <p className="tiny" style={{ marginTop: 2 }}>
-                Check your hoodie size before you head out.
+                Inspect your items before you head out to class.
               </p>
             </div>
           </div>
+
+          {/* Action buttons under next steps */}
+          <div className="receipt-actions-box">
+            <button
+              className={`btn ${printed ? "ghost" : "primary"} wide`}
+              type="button"
+              onClick={() => {
+                playSuccess();
+                setPrinted(true);
+              }}
+            >
+              {printed ? "✓ Physical Receipt Printed" : "🖨️ Print Paper Receipt"}
+            </button>
+
+            <button
+              className="btn ghost wide"
+              type="button"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                playTap();
+                setEmailSent(true);
+              }}
+            >
+              {emailSent ? `✓ Sent to ${studentEmail}` : `📧 Email Copy to ${studentEmail}`}
+            </button>
+          </div>
         </div>
 
-        <div className="card summary">
-          <h3 className="section-title" style={{ marginTop: 0, marginBottom: 12 }}>
-            Receipt · {itemCount} items
-          </h3>
-          {order.items.map((i) => (
-            <div className="row" key={i.name + (i.size ?? "")} style={{ margin: "6px 0" }}>
-              <span style={{ color: "var(--ink)", fontWeight: 500 }}>
-                {i.name}
-                {i.size ? ` · ${i.size}` : ""}
-              </span>
-              <span style={{ color: "var(--ink)", fontWeight: 600 }}>{pesos(i.price)}</span>
-            </div>
-          ))}
-          <div className="row" style={{ margin: "6px 0" }}>
-            <span style={{ color: "var(--ink)", fontWeight: 500 }}>Campus tax</span>
-            <span style={{ color: "var(--ink)", fontWeight: 600 }}>{pesos(order.tax)}</span>
+        {/* Physical Thermal Paper Receipt Styled Box */}
+        <div className="thermal-receipt">
+          <div className="receipt-header">
+            <div className="receipt-logo">★ ALDER UNIVERSITY ★</div>
+            <div className="receipt-store">NORTH HALL CAMPUS MERCHANDISE</div>
+            <div className="receipt-sub">KIOSK #01 · TAX INVOICE</div>
           </div>
-          <div
-            className="total"
-            style={{
-              fontSize: 22,
-              marginTop: 12,
-              paddingTop: 10,
-              borderTop: "1px solid #eeeae0",
-            }}
-          >
-            <span>Total paid·</span>
+
+          <div className="receipt-divider">- - - - - - - - - - - - - - - - - - - - - - -</div>
+
+          <div className="receipt-meta">
+            <div>ORDER: #{order.id} ({itemCount} ITEMS)</div>
+            <div>DATE: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            <div>STUDENT: {student.name}</div>
+            <div>ID: •••• {student.id.slice(-4)}</div>
+          </div>
+
+          <div className="receipt-divider">- - - - - - - - - - - - - - - - - - - - - - -</div>
+
+          <div className="receipt-items">
+            {order.items.map((i, idx) => (
+              <div className="receipt-line" key={idx}>
+                <span className="receipt-name">
+                  {i.qty}x {i.name} {i.size ? `(${i.size})` : ""}
+                </span>
+                <span className="receipt-price">{pesos(i.price)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="receipt-divider">- - - - - - - - - - - - - - - - - - - - - - -</div>
+
+          <div className="receipt-line">
+            <span>Subtotal:</span>
+            <span>{pesos(order.subtotal)}</span>
+          </div>
+          <div className="receipt-line">
+            <span>Campus Tax (5%):</span>
+            <span>{pesos(order.tax)}</span>
+          </div>
+          <div className="receipt-line receipt-total-line">
+            <span>TOTAL:</span>
             <span>{pesos(order.total)}</span>
           </div>
-          <p className="tiny" style={{ marginTop: 8 }}>
-            Paid with {order.method === "balance" ? "campus balance" : "card"}
-          </p>
-          <p style={{ fontWeight: 700, marginTop: 6, color: "var(--ink)" }}>
-            Balance left · {pesos(student.balance)}
-          </p>
-          <p className="tiny" style={{ marginTop: 8 }}>
-            Receipt sent to your Alder student email.
-          </p>
+
+          <div className="receipt-divider">- - - - - - - - - - - - - - - - - - - - - - -</div>
+
+          <div className="receipt-meta" style={{ textAlign: "center" }}>
+            <div>PAYMENT: {order.method === "balance" ? "CAMPUS BALANCE" : "DEBIT/CREDIT CARD"}</div>
+            <div>CAMPUS BALANCE LEFT: {pesos(student.balance)}</div>
+            <div style={{ fontWeight: 700, marginTop: 4 }}>POINTS EARNED: +{order.pointsEarned.toFixed(2)} PTS</div>
+          </div>
+
+          {/* Barcode visual */}
+          <div className="receipt-barcode" aria-hidden>
+            <div className="barcode-bars" />
+            <span className="barcode-num">ALD-{order.id}-{order.pickupCode}</span>
+          </div>
+
+          <div className="receipt-footer">
+            THANK YOU FOR SUPPORTING ALDER ATHLETICS
+            <br />
+            GO HAWKS!
+          </div>
         </div>
       </div>
 
@@ -127,27 +198,36 @@ export function Confirm() {
         <Shield />
         <div>
           <h3>
-            {order.pointsEarned.toFixed(2)} points earned. That’s {student.points.toFixed(2)} Hawks
-            points!
+            +{order.pointsEarned.toFixed(2)} points earned! You now have {student.points.toFixed(2)} Hawks points.
           </h3>
           <p>
             {student.points >= 500
-              ? "You’ve unlocked ₱100 store credit. View Balance & Rewards to redeem it."
-              : "Keep earning points with every purchase. View Balance & Rewards."}
+              ? "🎉 You’ve unlocked a ₱100 store credit reward! View your Balance & Rewards to redeem it."
+              : "Every purchase earns 1 point per ₱10 spent. Check your rewards tier anytime."}
           </p>
         </div>
       </div>
 
-      <div className="btn-row" style={{ marginTop: 20 }}>
+      <div className="btn-row" style={{ marginTop: 24 }}>
         <button
           className="btn ghost"
           type="button"
-          onClick={() => dispatch({ type: "go", screen: "rewards" })}
+          onClick={() => {
+            playTap();
+            dispatch({ type: "go", screen: "rewards", returnTo: null });
+          }}
         >
-          Balance & rewards
+          View Balance & Rewards
         </button>
-        <button className="btn primary" type="button" onClick={() => dispatch({ type: "end" })}>
-          Done · End session ✓
+        <button
+          className="btn primary"
+          type="button"
+          onClick={() => {
+            playTap();
+            dispatch({ type: "end" });
+          }}
+        >
+          Done · End Session ✓
         </button>
       </div>
     </Shell>

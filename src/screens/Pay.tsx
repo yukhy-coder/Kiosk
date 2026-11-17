@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Back, Shell } from "../components/Shell";
 import { pesos, products } from "../data";
 import { useKiosk } from "../store";
+import { playTap } from "../utils/sound";
 
 export function Pay() {
   const { state, dispatch, totals } = useKiosk();
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
 
   // Guard: if no student or empty cart, redirect
   useEffect(() => {
@@ -89,12 +91,23 @@ export function Pay() {
       ) : insufficient && state.payMethod === "balance" ? (
         <div className="banner danger">
           <Warn />
-          <div>
+          <div style={{ flex: 1 }}>
             <h3>Not enough available campus balance</h3>
             <p>
               {pesos(student.balance)} is available. You need {pesos(short)} more. Choose a bank card
-              or add funds at the campus card office.
+              or reload your campus card instantly below.
             </p>
+            <button
+              className="btn ghost"
+              type="button"
+              style={{ marginTop: 10, padding: "8px 16px", fontSize: 14 }}
+              onClick={() => {
+                playTap();
+                setShowTopUpModal(true);
+              }}
+            >
+              + Quick Reload Campus Balance
+            </button>
           </div>
         </div>
       ) : (
@@ -110,47 +123,68 @@ export function Pay() {
       <div className="two-col">
         <div>
           <h3 className="section-title">Payment method</h3>
+
+          {/* Option 1: Campus Balance */}
           <button
             type="button"
             className={`card pay-opt ${state.payMethod === "balance" ? "selected" : ""}`}
             disabled={processing}
-            onClick={() => dispatch({ type: "setPayMethod", method: "balance" })}
+            onClick={() => {
+              playTap();
+              dispatch({ type: "setPayMethod", method: "balance" });
+            }}
           >
             <div className="top">
               <strong>
-                <CardI /> Campus balance
+                <CardI /> Alder Campus Balance
               </strong>
               <span className={`radio ${state.payMethod === "balance" ? "on" : ""}`} />
             </div>
             <div className="amt">{pesos(student.balance)}</div>
             <p className="tiny">Available to spend: {pesos(student.balance)}</p>
             {canBalance ? (
-              <p style={{ fontWeight: 700, marginTop: 8 }}>After this order: {pesos(after)}</p>
-            ) : (
-              <p className="warn" style={{ marginTop: 8 }}>
-                Insufficient · {pesos(short)} short
+              <p style={{ fontWeight: 700, marginTop: 8, color: "var(--green)" }}>
+                After this order: {pesos(after)}
               </p>
+            ) : (
+              <div style={{ marginTop: 8 }}>
+                <p className="warn">Insufficient · {pesos(short)} short</p>
+                <span
+                  className="quick-reload-link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playTap();
+                    setShowTopUpModal(true);
+                  }}
+                >
+                  Reload balance →
+                </span>
+              </div>
             )}
           </button>
 
+          {/* Option 2: Debit / Credit Card / Apple Pay */}
           <button
             type="button"
             className={`card pay-opt ${state.payMethod === "card" ? "selected" : ""}`}
             disabled={processing}
-            onClick={() => dispatch({ type: "setPayMethod", method: "card" })}
+            onClick={() => {
+              playTap();
+              dispatch({ type: "setPayMethod", method: "card" });
+            }}
           >
             <div className="top">
               <strong>
-                <Bank /> Debit / credit card
+                <Bank /> Debit / Credit / Apple Pay
               </strong>
               <span className={`radio ${state.payMethod === "card" ? "on" : ""}`} />
             </div>
             {declined ? (
               <>
-                <p style={{ margin: "8px 0 4px", fontWeight: 500 }}>
+                <p style={{ margin: "8px 0 4px", fontWeight: 500, color: "var(--danger)" }}>
                   Visa •••• 4242 · Declined
                 </p>
-                <p className="tiny">Visa · Mastercard · Apple Pay</p>
+                <p className="tiny">Visa · Mastercard · Apple Pay · GPay</p>
                 <p style={{ fontWeight: 700, marginTop: 10 }}>
                   Full card payment: {pesos(totals.total)}
                 </p>
@@ -158,9 +192,9 @@ export function Pay() {
             ) : (
               <>
                 <p style={{ margin: "8px 0 4px", fontWeight: 500 }}>
-                  Tap or insert at the card reader
+                  Tap card or device at the reader below
                 </p>
-                <p className="tiny">Visa · Mastercard · Apple Pay</p>
+                <p className="tiny">Visa · Mastercard · Apple Pay · Contactless</p>
                 {state.payMethod === "card" ? (
                   <p style={{ fontWeight: 700, marginTop: 10 }}>
                     Full card payment: {pesos(totals.total)}
@@ -169,6 +203,32 @@ export function Pay() {
               </>
             )}
           </button>
+
+          {/* Contactless Hardware Terminal Mockup */}
+          {state.payMethod === "card" && !processing ? (
+            <div
+              className="pos-terminal-box"
+              onClick={() => {
+                dispatch({ type: "beginPay" });
+              }}
+              title="Tap to simulate card swipe"
+            >
+              <div className="pos-antenna-pulse">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                  <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                  <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                  <line x1="12" y1="20" x2="12.01" y2="20" strokeWidth="3"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Simulated Contactless Terminal</strong>
+                <p>Tap here or tap your physical card against Kiosk Reader #1</p>
+              </div>
+              <span className="tap-badge">TAP TO PAY</span>
+            </div>
+          ) : null}
+
           <p className="tiny" style={{ marginTop: 12 }}>
             One payment method per order. No split payments or cash.
           </p>
@@ -200,6 +260,12 @@ export function Pay() {
               <span>Subtotal</span>
               <span>{pesos(totals.subtotal)}</span>
             </div>
+            {totals.discount > 0 ? (
+              <div className="row discount-row">
+                <span>Voucher discount</span>
+                <span>− {pesos(totals.discount)}</span>
+              </div>
+            ) : null}
             <div className="row">
               <span>Campus tax · 5%</span>
               <span>{pesos(totals.tax)}</span>
@@ -219,10 +285,10 @@ export function Pay() {
       {processing ? (
         <>
           <div className="processing-bar">
-            Processing payment… <span className="spin" />
+            Authorizing payment… <span className="spin" />
           </div>
           <p className="fine" style={{ marginTop: 14 }}>
-            Please wait for your confirmation before collecting your items.
+            Please wait for your pickup confirmation before leaving the kiosk.
           </p>
         </>
       ) : declined ? (
@@ -230,36 +296,21 @@ export function Pay() {
           <button
             className="btn ghost"
             type="button"
-            onClick={() => dispatch({ type: "setPayMethod", method: "balance" })}
+            onClick={() => {
+              playTap();
+              dispatch({ type: "setPayMethod", method: "balance" });
+            }}
           >
-            Use campus balance
-          </button>
-          <button
-            className="btn primary"
-            type="button"
-            onClick={() => dispatch({ type: "beginPay" })}
-          >
-            Try a different card <Lock />
-          </button>
-        </div>
-      ) : insufficient && !canBalance ? (
-        <div className="btn-row" style={{ marginTop: 24 }}>
-          <button
-            className="btn ghost"
-            type="button"
-            onClick={() => dispatch({ type: "go", screen: "cart" })}
-          >
-            Review cart
+            Switch to Campus Balance
           </button>
           <button
             className="btn primary"
             type="button"
             onClick={() => {
-              dispatch({ type: "setPayMethod", method: "card" });
               dispatch({ type: "beginPay" });
             }}
           >
-            Pay {pesos(totals.total)} by card <Lock />
+            Retry Card · {pesos(totals.total)}
           </button>
         </div>
       ) : (
@@ -267,31 +318,113 @@ export function Pay() {
           <button
             className="btn ghost"
             type="button"
-            onClick={() => dispatch({ type: "go", screen: "cart" })}
+            onClick={() => {
+              playTap();
+              dispatch({ type: "go", screen: "cart" });
+            }}
           >
-            Review cart
+            Review Cart
           </button>
-          <button
-            className="btn primary"
-            type="button"
-            onClick={() => dispatch({ type: "beginPay" })}
-          >
-            {state.payMethod === "balance"
-              ? `Pay ${pesos(totals.total)} · Campus balance`
-              : `Pay ${pesos(totals.total)} by card`}{" "}
-            <Lock />
-          </button>
+          {state.payMethod === "balance" && !canBalance ? (
+            <button
+              className="btn disabled"
+              type="button"
+              disabled
+              title="Insufficient balance"
+            >
+              Insufficient balance · {pesos(short)} short
+            </button>
+          ) : (
+            <button
+              className="btn primary"
+              type="button"
+              onClick={() => {
+                dispatch({ type: "beginPay" });
+              }}
+            >
+              Pay with {state.payMethod === "card" ? "Card" : "Campus Balance"} · {pesos(totals.total)}
+            </button>
+          )}
         </div>
       )}
+
+      {/* Quick Deposit Modal */}
+      {showTopUpModal ? (
+        <div className="overlay" onClick={() => setShowTopUpModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Reload Campus Card Balance</h3>
+            <p>Add funds instantly to student account {student.id}.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "20px 0" }}>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 200 });
+                  setShowTopUpModal(false);
+                }}
+              >
+                + ₱200.00
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 500 });
+                  setShowTopUpModal(false);
+                }}
+              >
+                + ₱500.00
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 1000 });
+                  setShowTopUpModal(false);
+                }}
+              >
+                + ₱1,000.00
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 2000 });
+                  setShowTopUpModal(false);
+                }}
+              >
+                + ₱2,000.00
+              </button>
+            </div>
+            <button
+              className="btn ghost wide"
+              type="button"
+              onClick={() => setShowTopUpModal(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }
 
-function Lock() {
+function CardI() {
   return (
-    <svg className="lock" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.8" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M2 10h20" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function Bank() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
+      <circle cx="8" cy="12" r="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M14 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -301,15 +434,6 @@ function Shield() {
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="9" stroke="#1a4d38" strokeWidth="1.7" />
       <path d="m8 12 2.6 2.6L16 9.4" stroke="#1a4d38" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function Clock() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="9" stroke="#1a4d38" strokeWidth="1.7" />
-      <path d="M12 7v5l3 2" stroke="#1a4d38" strokeWidth="1.7" strokeLinecap="round" />
     </svg>
   );
 }
@@ -324,34 +448,11 @@ function Warn() {
   );
 }
 
-function CardI() {
+function Clock() {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      style={{ marginRight: 6, verticalAlign: "-3px" }}
-    >
-      <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M3 10h18" stroke="currentColor" strokeWidth="1.7" />
-    </svg>
-  );
-}
-
-function Bank() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      style={{ marginRight: 6, verticalAlign: "-3px" }}
-    >
-      <rect x="3" y="8" width="18" height="10" rx="2" stroke="currentColor" strokeWidth="1.7" />
-      <path d="M3 12h18" stroke="currentColor" strokeWidth="1.7" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="9" stroke="#1a4d38" strokeWidth="1.7" />
+      <path d="M12 7v5l3 3" stroke="#1a4d38" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

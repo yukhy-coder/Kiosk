@@ -1,5 +1,6 @@
 import { Shell } from "../components/Shell";
 import { useKiosk } from "../store";
+import { playTap } from "../utils/sound";
 
 export function Welcome() {
   const { dispatch } = useKiosk();
@@ -8,7 +9,7 @@ export function Welcome() {
       <img className="hero" src="/hero.jpg" alt="Alder campus store merch on a stone plinth" />
       <div className="features">
         <span>
-          <Bag /> Shop campus favorites
+          <Bag /> Shop 25 campus favorites
         </span>
         <span>
           <Card /> Pay with campus balance
@@ -17,17 +18,34 @@ export function Welcome() {
           <Gift /> Earn Hawks points
         </span>
       </div>
-      <button className="btn primary wide" type="button" onClick={() => dispatch({ type: "go", screen: "signin" })}>
-        Start with student ID →
+      <button
+        className="btn primary wide hero-start-btn"
+        type="button"
+        onClick={() => {
+          playTap();
+          dispatch({ type: "go", screen: "signin" });
+        }}
+      >
+        <span>Touch to Start with Student ID →</span>
       </button>
       <div style={{ height: 12 }} />
-      <button className="btn ghost wide" type="button" onClick={() => dispatch({ type: "go", screen: "browse" })}>
+      <button
+        className="btn ghost wide"
+        type="button"
+        onClick={() => {
+          playTap();
+          dispatch({ type: "go", screen: "browse" });
+        }}
+      >
         Browse merchandise first
       </button>
-      <div style={{ marginTop: 12, textAlign: "center" }}>
+      <div style={{ marginTop: 14, textAlign: "center" }}>
         <button
           type="button"
-          onClick={() => dispatch({ type: "go", screen: "signup" })}
+          onClick={() => {
+            playTap();
+            dispatch({ type: "go", screen: "signup" });
+          }}
           style={{
             background: "none",
             border: 0,
@@ -41,7 +59,7 @@ export function Welcome() {
           New student? Register student ID →
         </button>
       </div>
-      <p className="fine">Student ID is required at checkout. No cash accepted.</p>
+      <p className="fine">Student ID is accepted at checkout. Contactless card payment also supported. No cash.</p>
     </Shell>
   );
 }

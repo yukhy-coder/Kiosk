@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { products, TAX_RATE, type Product } from "./data";
+import { playAddCart, playSuccess, playError, playRedeem, playTap } from "./utils/sound";
 
 export type Screen =
   | "welcome"
@@ -58,6 +59,9 @@ export type State = {
   order: Order | null;
   redeemed100: boolean;
   returnTo: Screen | null;
+  promoCode: string | null;
+  discount: number;
+  toast: string | null;
 };
 
 // Known student database
@@ -107,6 +111,9 @@ export const initial: State = {
   order: null,
   redeemed100: false,
   returnTo: null,
+  promoCode: null,
+  discount: 0,
+  toast: null,
 };
 
 export type Action =
@@ -119,23 +126,29 @@ export type Action =
   | { type: "setQty"; qty: number }
   | { type: "setSize"; size: string }
   | { type: "addToCart" }
+  | { type: "quickAdd"; productId: string; size?: string }
   | { type: "cartQty"; productId: string; size?: string; qty: number }
   | { type: "remove"; productId: string; size?: string }
+  | { type: "clearCart" }
+  | { type: "applyPromo"; code: string }
+  | { type: "deposit"; amount: number }
+  | { type: "setToast"; message: string | null }
   | { type: "setPayMethod"; method: "balance" | "card" }
   | { type: "beginPay" }
   | { type: "payResult"; result: "ok" | "declined" | "insufficient" }
   | { type: "redeem100" };
 
-export function totals(cart: CartItem[]) {
+export function totals(cart: CartItem[], discount: number = 0) {
   const subtotal = cart.reduce((sum, item) => {
     const p = products.find((x) => x.id === item.productId);
     return sum + (p ? p.price * item.qty : 0);
   }, 0);
-  const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
-  const total = Math.round((subtotal + tax) * 100) / 100;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const tax = Math.round(discountedSubtotal * TAX_RATE * 100) / 100;
+  const total = Math.round((discountedSubtotal + tax) * 100) / 100;
   const pointsEarned = Math.round((total / 10) * 100) / 100;
   const count = cart.reduce((n, i) => n + i.qty, 0);
-  return { subtotal, tax, total, pointsEarned, count };
+  return { subtotal, discount, discountedSubtotal, tax, total, pointsEarned, count };
 }
 
 export function lookupStudent(id: string): Student | null {
@@ -209,8 +222,68 @@ export function reducer(state: State, action: Action): State {
       const cart = [...state.cart];
       if (idx >= 0) cart[idx] = { ...cart[idx], qty: cart[idx].qty + state.productQty };
       else cart.push({ productId: state.productId, qty: state.productQty, size });
-      return { ...state, cart, screen: "cart" };
+      playAddCart();
+      return {
+        ...state,
+        cart,
+        screen: "cart",
+        toast: `Added ${p?.name ?? "item"} to cart`,
+      };
     }
+    case "quickAdd": {
+      const p = products.find((x) => x.id === action.productId);
+      if (!p) return state;
+      const size = action.size ?? p.sizes?.[0];
+      const idx = state.cart.findIndex(
+        (i) => i.productId === action.productId && i.size === size,
+      );
+      const cart = [...state.cart];
+      if (idx >= 0) cart[idx] = { ...cart[idx], qty: cart[idx].qty + 1 };
+      else cart.push({ productId: action.productId, qty: 1, size });
+      playAddCart();
+      return { ...state, cart, toast: `Added ${p.name} to cart` };
+    }
+    case "clearCart":
+      return { ...state, cart: [], promoCode: null, discount: 0 };
+    case "applyPromo": {
+      const code = action.code.trim().toUpperCase();
+      const t = totals(state.cart, 0);
+      let disc = 0;
+      let toastMsg = "";
+      if (code === "HAWKS10") {
+        disc = Math.round(t.subtotal * 0.1 * 100) / 100;
+        toastMsg = "Promo HAWKS10 applied: 10% off!";
+        playSuccess();
+      } else if (code === "ALDER50") {
+        disc = Math.min(t.subtotal, 50);
+        toastMsg = "Voucher ALDER50 applied: ₱50.00 off!";
+        playSuccess();
+      } else if (code === "FROSH") {
+        disc = Math.min(t.subtotal, 100);
+        toastMsg = "Frosh Welcome applied: ₱100.00 off!";
+        playSuccess();
+      } else {
+        playError();
+        return { ...state, toast: "Invalid promo code" };
+      }
+      return { ...state, promoCode: code, discount: disc, toast: toastMsg };
+    }
+    case "deposit": {
+      if (!state.student) return state;
+      const updated: Student = {
+        ...state.student,
+        balance: Math.round((state.student.balance + action.amount) * 100) / 100,
+      };
+      saveStudent(updated);
+      playRedeem();
+      return {
+        ...state,
+        student: updated,
+        toast: `Loaded ₱${action.amount.toFixed(2)} to Campus Card!`,
+      };
+    }
+    case "setToast":
+      return { ...state, toast: action.message };
     case "cartQty": {
       const cart = state.cart
         .map((i) =>
@@ -241,14 +314,17 @@ export function reducer(state: State, action: Action): State {
       };
     case "beginPay": {
       if (!state.student || state.cart.length === 0) return state;
-      const t = totals(state.cart);
+      const t = totals(state.cart, state.discount);
       if (state.payMethod === "balance" && state.student.balance < t.total) {
+        playError();
         return { ...state, payStatus: "insufficient", screen: "pay" };
       }
+      playTap();
       return { ...state, payStatus: "processing", screen: "pay" };
     }
     case "payResult": {
       if (action.result === "declined") {
+        playError();
         return {
           ...state,
           payStatus: "declined",
@@ -257,10 +333,11 @@ export function reducer(state: State, action: Action): State {
         };
       }
       if (action.result === "insufficient") {
+        playError();
         return { ...state, payStatus: "insufficient" };
       }
       if (!state.student || state.cart.length === 0) return state;
-      const t = totals(state.cart);
+      const t = totals(state.cart, state.discount);
       const items = state.cart.map((i) => {
         const p = products.find((x) => x.id === i.productId)!;
         return { name: p.name, qty: i.qty, size: i.size, price: p.price * i.qty };
@@ -281,27 +358,35 @@ export function reducer(state: State, action: Action): State {
         points: Math.round((state.student.points + t.pointsEarned) * 100) / 100,
       };
       saveStudent(student);
+      playSuccess();
       return {
         ...state,
         student,
         order,
         cart: [],
+        promoCode: null,
+        discount: 0,
         payStatus: "idle",
         screen: "confirm",
       };
     }
     case "redeem100": {
-      if (!state.student || state.redeemed100 || state.student.points < 500) return state;
+      if (!state.student || state.redeemed100 || state.student.points < 500) {
+        playError();
+        return state;
+      }
       const updatedStudent: Student = {
         ...state.student,
         points: Math.round((state.student.points - 500) * 100) / 100,
         balance: Math.round((state.student.balance + 100) * 100) / 100,
       };
       saveStudent(updatedStudent);
+      playRedeem();
       return {
         ...state,
         redeemed100: true,
         student: updatedStudent,
+        toast: "Redeemed 500 points for ₱100.00 store credit!",
       };
     }
     default:
@@ -339,7 +424,10 @@ const Ctx = createContext<{
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial);
   const product = products.find((p) => p.id === state.productId) ?? null;
-  const t = useMemo(() => totals(state.cart), [state.cart]);
+  const t = useMemo(
+    () => totals(state.cart, state.discount),
+    [state.cart, state.discount],
+  );
   const step = stepFor(state.screen);
   return (
     <Ctx.Provider value={{ state, dispatch, step, product, totals: t }}>

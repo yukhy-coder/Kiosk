@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Back, Shell } from "../components/Shell";
 import { useKiosk, lookupStudent } from "../store";
+import { playKeypad, playTap, playError, playSuccess } from "../utils/sound";
 
 export function SignIn() {
   const { state, dispatch } = useKiosk();
@@ -11,18 +12,27 @@ export function SignIn() {
     if (isError) {
       setIsError(false);
     }
-    if (k === "C") setId("");
-    else if (k === "D") setId((v) => v.slice(0, -1));
-    else setId((v) => (v.length >= 8 ? v : v + k));
+    if (k === "C") {
+      playTap();
+      setId("");
+    } else if (k === "D") {
+      playTap();
+      setId((v) => v.slice(0, -1));
+    } else {
+      playKeypad(500 + Number(k) * 35);
+      setId((v) => (v.length >= 8 ? v : v + k));
+    }
   }
 
   function handleContinue() {
     if (id.length !== 8) return;
     const student = lookupStudent(id);
     if (!student) {
+      playError();
       setIsError(true);
       return;
     }
+    playSuccess();
     dispatch({ type: "signIn", id });
   }
 
@@ -31,7 +41,7 @@ export function SignIn() {
 
   return (
     <Shell>
-      <Back onClick={() => dispatch({ type: "go", screen: backTarget, returnTo: null })}>
+      <Back onClick={() => { playTap(); dispatch({ type: "go", screen: backTarget, returnTo: null }); }}>
         {backLabel}
       </Back>
       <h2 className="display">Let's make it yours.</h2>
@@ -58,7 +68,7 @@ export function SignIn() {
           )}
         </div>
         <p className="tiny" style={{ marginTop: 10 }}>
-          Find this number on the front of your student card.
+          Find this number on the front of your Alder student card.
         </p>
       </div>
 
@@ -75,7 +85,10 @@ export function SignIn() {
             type="button"
             className="btn ghost"
             style={{ height: 42, fontSize: 15, alignSelf: "flex-start", marginLeft: 36 }}
-            onClick={() => dispatch({ type: "go", screen: "signup" })}
+            onClick={() => {
+              playTap();
+              dispatch({ type: "go", screen: "signup" });
+            }}
           >
             Register ID "{id}" now →
           </button>
@@ -124,7 +137,10 @@ export function SignIn() {
       <div style={{ marginTop: 14, textAlign: "center" }}>
         <button
           type="button"
-          onClick={() => dispatch({ type: "go", screen: "signup" })}
+          onClick={() => {
+            playTap();
+            dispatch({ type: "go", screen: "signup" });
+          }}
           style={{
             background: "none",
             border: 0,

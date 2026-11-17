@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Back, Shell } from "../components/Shell";
 import { pesos } from "../data";
 import { useKiosk } from "../store";
+import { playTap, playRedeem } from "../utils/sound";
 
 export function Rewards() {
   const { state, dispatch } = useKiosk();
+  const [showDepositModal, setShowDepositModal] = useState(false);
 
   // Guard: if not signed in, go back to welcome
   useEffect(() => {
@@ -42,19 +44,31 @@ export function Rewards() {
 
   return (
     <Shell>
-      <Back onClick={() => dispatch({ type: "go", screen: backTarget, returnTo: null })}>
+      <Back onClick={() => { playTap(); dispatch({ type: "go", screen: backTarget, returnTo: null }); }}>
         {backLabel}
       </Back>
       <h2 className="display">Your campus perks, all here.</h2>
       <p className="lede">
-        {student.name} · Student ID •••• {student.id.slice(-4)} · Hawks Rewards member
+        {student.name} · Student ID •••• {student.id.slice(-4)} · Hawks Rewards Member
       </p>
 
       <div className="perk-row">
         <div className="perk green">
           <div className="label">Campus balance</div>
           <div className="big">{pesos(student.balance)}</div>
-          <div className="sub">Available now · No pending holds</div>
+          <div className="sub" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Available now</span>
+            <button
+              className="quick-reload-pill"
+              type="button"
+              onClick={() => {
+                playTap();
+                setShowDepositModal(true);
+              }}
+            >
+              + Reload
+            </button>
+          </div>
         </div>
         <div className="perk gold">
           <div className="label">Hawks points</div>
@@ -130,9 +144,12 @@ export function Rewards() {
               className="btn primary wide"
               type="button"
               disabled={student.points < 500}
-              onClick={() => dispatch({ type: "redeem100" })}
+              onClick={() => {
+                playRedeem();
+                dispatch({ type: "redeem100" });
+              }}
             >
-              Redeem 500 points
+              {student.points >= 500 ? "Redeem 500 points" : "Need 500 points"}
             </button>
           )}
         </div>
@@ -185,7 +202,7 @@ export function Rewards() {
                 marginBottom: 8,
               }}
             >
-              <span style={{ color: "var(--ink)", fontWeight: 500 }}>Order {order.id}</span>
+              <span style={{ color: "var(--ink)", fontWeight: 500 }}>Order #{order.id}</span>
               <span style={{ fontWeight: 700, color: "var(--ink)" }}>
                 −{pesos(order.total)} / +{order.pointsEarned.toFixed(2)} points
               </span>
@@ -216,7 +233,7 @@ export function Rewards() {
               }}
             >
               <span style={{ color: "var(--ink)", fontWeight: 500 }}>Account status</span>
-              <span style={{ fontWeight: 700, color: "var(--ink)" }}>Active Member</span>
+              <span style={{ fontWeight: 700, color: "var(--green)" }}>Active Hawks Member</span>
             </div>
             <div className="row" style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ color: "var(--ink)", fontWeight: 500 }}>Current balance</span>
@@ -229,8 +246,67 @@ export function Rewards() {
       </div>
 
       <p className="fine" style={{ textAlign: "left", marginTop: 14, fontSize: 14 }}>
-        Add funds at the campus card office. Store credit cannot be exchanged for cash.
+        Campus balances update instantly across all North Hall registers and dining commons.
       </p>
+
+      {/* Quick Deposit Modal */}
+      {showDepositModal ? (
+        <div className="overlay" onClick={() => setShowDepositModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Reload Campus Card Balance</h3>
+            <p>Add funds to {student.name} ({student.id}).</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "20px 0" }}>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 200 });
+                  setShowDepositModal(false);
+                }}
+              >
+                + ₱200.00
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 500 });
+                  setShowDepositModal(false);
+                }}
+              >
+                + ₱500.00
+              </button>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 1000 });
+                  setShowDepositModal(false);
+                }}
+              >
+                + ₱1,000.00
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "deposit", amount: 2000 });
+                  setShowDepositModal(false);
+                }}
+              >
+                + ₱2,000.00
+              </button>
+            </div>
+            <button
+              className="btn ghost wide"
+              type="button"
+              onClick={() => setShowDepositModal(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }

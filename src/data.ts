@@ -14,6 +14,7 @@ export type Product = {
   sizes?: string[];
   variantLabel?: string;
   points: number;
+  badge?: "Bestseller" | "New" | "Staff Pick" | "Popular";
 };
 
 export const TAX_RATE = 0.05;
@@ -34,6 +35,7 @@ export const products: Product[] = [
     color: "Forest green",
     sizes: ["S", "M", "L", "XL"],
     points: 58,
+    badge: "Bestseller",
   },
   {
     id: "crewneck",
@@ -85,6 +87,7 @@ export const products: Product[] = [
     color: "Forest",
     variantLabel: "750 mL",
     points: 45,
+    badge: "Bestseller",
   },
   {
     id: "rugby",
@@ -111,6 +114,7 @@ export const products: Product[] = [
     color: "Forest / cream",
     sizes: ["S", "M", "L", "XL"],
     points: 59,
+    badge: "Staff Pick",
   },
   {
     id: "quarterzip",
@@ -124,6 +128,7 @@ export const products: Product[] = [
     color: "Forest",
     sizes: ["S", "M", "L", "XL"],
     points: 59,
+    badge: "New",
   },
   {
     id: "joggers",
